@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>為替レート表示アプリ</title>
+    <!-- Tailwind CSS (スタイリング用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Noto Sans JP) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f1f5f9; /* Slate-100: 落ち着いた背景色 */
+        }
+        /* 金額表示のアニメーション用 */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-slate-700">
+
+    <!-- ヘッダー -->
+    <header class="bg-slate-800 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Exchange Rate View
+                </h1>
+                <p class="text-sm text-slate-400 hidden sm:block">シンプルで使いやすい為替計算機</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="container mx-auto px-4 py-8 max-w-4xl">
+        
+        <!-- セクション1: 通貨換算計算機 -->
+        <section class="bg-white rounded-xl shadow-md p-6 mb-8 border-t-4 border-teal-500">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                日本円換算シミュレーター
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <!-- 入力フォーム -->
+                <div class="space-y-4">
+                    <div>
+                        <label for="jpy-input" class="block text-sm font-medium text-slate-600 mb-1">日本円 (JPY)</label>
+                        <div class="relative">
+                            <input type="number" id="jpy-input" placeholder="金額を入力 (例: 1000)" 
+                                class="w-full p-3 pl-4 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+                                min="0" step="1">
+                            <span class="absolute right-4 top-3 text-slate-400 font-medium">円</span>
+                        </div>
+                        <p id="error-message" class="text-red-500 text-sm mt-1 hidden">※ 有効な金額を入力してください</p>
+                    </div>
+
+                    <div>
+                        <label for="currency-select" class="block text-sm font-medium text-slate-600 mb-1">換算先の通貨</label>
+                        <select id="currency-select" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+                            <!-- JSで動的に生成 -->
+                        </select>
+                    </div>
+                    
+                    <button id="calc-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition shadow-md active:transform active:scale-95">
+                        換算する
+                    </button>
+                </div>
+
+                <!-- 結果表示エリア -->
+                <div class="bg-slate-50 rounded-lg p-6 border border-slate-200 flex flex-col items-center justify-center h-full min-h-[200px]">
+                    <p class="text-sm text-slate-500 mb-2">換算結果</p>
+                    <div id="result-area" class="text-center">
+                        <span id="result-value" class="text-4xl font-bold text-slate-800 tracking-tight">-</span>
+                        <span id="result-unit" class="text-xl text-slate-600 ml-2"></span>
+                    </div>
+                    <p id="rate-info" class="text-xs text-slate-400 mt-4">レート: -</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- セクション2: 為替レート一覧 -->
+        <section class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    主要通貨レート一覧
+                </h2>
+                <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded">対 日本円 (JPY)</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase">
+                            <th class="p-4 font-semibold">国旗 / 通貨</th>
+                            <th class="p-4 font-semibold">コード</th>
+                            <th class="p-4 font-semibold text-right">現在のレート (円)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rates-table-body" class="text-slate-700">
+                        <!-- JSで動的に生成 -->
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-right text-xs text-slate-400 mt-4">* データはサンプルです。実際の取引レートとは異なります。</p>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-800 text-slate-400 py-6 mt-12 text-center text-sm">
+        <p>&copy; 2024 Exchange Rate View App. All rights reserved.</p>
+    </footer>
+
+    <!-- アプリケーションロジック -->
+    <script>
+        /**
+         * サンプルデータ定義 (JSONファイルの代わり)
+         * rate: 1単位あたりの日本円価格 (例: 1 USD = 145.50 JPY)
+         */
+        const currencyData = [
+            { code: "USD", name: "米ドル", flag: "🇺🇸", rate: 149.50, locale: "en-US" },
+            { code: "EUR", name: "ユーロ", flag: "🇪🇺", rate: 161.20, locale: "de-DE" },
+            { code: "GBP", name: "英ポンド", flag: "🇬🇧", rate: 188.40, locale: "en-GB" },
+            { code: "AUD", name: "豪ドル", flag: "🇦🇺", rate: 97.80, locale: "en-AU" },
+            { code: "CAD", name: "カナダドル", flag: "🇨🇦", rate: 110.15, locale: "en-CA" },
+            { code: "KRW", name: "韓国ウォン", flag: "🇰🇷", rate: 0.11, locale: "ko-KR" }, // 1ウォンあたりの円
+            { code: "CNY", name: "中国元", flag: "🇨🇳", rate: 20.80, locale: "zh-CN" },
+            { code: "CHF", name: "スイスフラン", flag: "🇨🇭", rate: 168.90, locale: "de-CH" }
+        ];
+
+        // DOM要素の取得
+        const jpyInput = document.getElementById('jpy-input');
+        const currencySelect = document.getElementById('currency-select');
+        const calcBtn = document.getElementById('calc-btn');
+        const resultValue = document.getElementById('result-value');
+        const resultUnit = document.getElementById('result-unit');
+        const rateInfo = document.getElementById('rate-info');
+        const errorMessage = document.getElementById('error-message');
+        const tableBody = document.getElementById('rates-table-body');
+
+        /**
+         * 初期化処理
+         */
+        function init() {
+            renderSelectOptions();
+            renderTable();
+            
+            // イベントリスナー設定
+            calcBtn.addEventListener('click', calculateExchange);
+            
+            // Enterキーで計算実行
+            jpyInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') calculateExchange();
+            });
+
+            // 入力時にエラーメッセージを消す
+            jpyInput.addEventListener('input', () => {
+                if(!errorMessage.classList.contains('hidden')) {
+                    errorMessage.classList.add('hidden');
+                    jpyInput.classList.remove('border-red-500', 'focus:ring-red-500');
+                    jpyInput.classList.add('border-slate-300', 'focus:ring-teal-500');
+                }
+            });
+        }
+
+        /**
+         * セレクトボックスのオプション生成
+         */
+        function renderSelectOptions() {
+            currencyData.forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.code;
+                option.textContent = `${currency.flag} ${currency.name} (${currency.code})`;
+                currencySelect.appendChild(option);
+            });
+        }
+
+        /**
+         * レート一覧テーブルの描画
+         */
+        function renderTable() {
+            tableBody.innerHTML = ''; // クリア
+            currencyData.forEach(currency => {
+                const row = document.createElement('tr');
+                row.className = "border-b border-slate-100 hover:bg-slate-50 transition";
+                
+                row.innerHTML = `
+                    <td class="p-4 flex items-center gap-3">
+                        <span class="text-2xl">${currency.flag}</span>
+                        <span class="font-medium">${currency.name}</span>
+                    </td>
+                    <td class="p-4 text-slate-500 font-mono">${currency.code}</td>
+                    <td class="p-4 text-right font-bold text-slate-700">
+                        ${currency.rate.toFixed(2)} <span class="text-xs font-normal text-slate-400">JPY</span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        /**
+         * 換算ロジック
+         */
+        function calculateExchange() {
+            const amount = parseFloat(jpyInput.value);
+            const targetCode = currencySelect.value;
+            
+            // エラーハンドリング: 入力値チェック
+            if (isNaN(amount) || amount < 0 || jpyInput.value.trim() === "") {
+                showError();
+                return;
+            }
+
+            // 選択された通貨のデータを取得
+            const targetCurrency = currencyData.find(c => c.code === targetCode);
+            
+            if (!targetCurrency) {
+                alert("通貨データが見つかりません。");
+                return;
+            }
+
+            // 計算: 日本円 / レート = 外貨額
+            // エラーハンドリング: 0除算回避（通常レートが0になることはないが念のため）
+            if (targetCurrency.rate === 0) {
+                alert("レート設定エラーです。");
+                return;
+            }
+
+            const convertedAmount = amount / targetCurrency.rate;
+
+            // 結果表示更新
+            updateDisplay(convertedAmount, targetCurrency);
+        }
+
+        /**
+         * エラー表示処理
+         */
+        function showError() {
+            errorMessage.classList.remove('hidden');
+            jpyInput.classList.remove('border-slate-300', 'focus:ring-teal-500');
+            jpyInput.classList.add('border-red-500', 'focus:ring-red-500');
+            
+            // 結果をリセット
+            resultValue.innerText = "-";
+            resultUnit.innerText = "";
+            rateInfo.innerText = "レート: -";
+        }
+
+        /**
+         * 結果表示の更新
+         */
+        function updateDisplay(amount, currency) {
+            // 通貨フォーマット (例: 1,234.56)
+            const formatter = new Intl.NumberFormat(currency.locale, {
+                style: 'decimal',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            // アニメーション用にクラスを再適用
+            const resultArea = document.getElementById('result-area');
+            resultArea.classList.remove('fade-in');
+            void resultArea.offsetWidth; // リフロー発生
+            resultArea.classList.add('fade-in');
+
+            resultValue.textContent = formatter.format(amount);
+            resultUnit.textContent = currency.code;
+            rateInfo.textContent = `レート: 1 ${currency.code} = ${currency.rate} JPY`;
+        }
+
+        // アプリケーション開始
+        init();
+    </script>
+</body>
+</html>
