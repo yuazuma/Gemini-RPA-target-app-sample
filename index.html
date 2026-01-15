@@ -6,284 +6,378 @@
     <title>為替レート表示アプリ</title>
     <!-- Tailwind CSS (スタイリング用) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts (Noto Sans JP) -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome (アイコン用) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bank: {
+                            primary: '#0F172A',   /* 非常に濃いネイビー (Slate 900) */
+                            accent: '#1E293B',    /* 濃いグレーネイビー (Slate 800) */
+                            gold: '#C5A059',      /* 落ち着いたゴールド（アクセント用） */
+                            light: '#F8FAFC',     /* 背景用オフホワイト */
+                            border: '#E2E8F0',    /* 境界線用 */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Helvetica Neue"', 'Arial', '"Hiragino Kaku Gothic ProN"', '"Hiragino Sans"', 'Meiryo', 'sans-serif'],
+                        serif: ['"Times New Roman"', '"Yu Mincho"', '"Hiragino Mincho ProN"', 'serif'] /* タイトルなどで使用 */
+                    }
+                }
+            }
+        }
+    </script>
     <style>
+        /* カスタムスクロールバーなどの微調整 */
         body {
-            font-family: 'Noto Sans JP', sans-serif;
-            background-color: #f1f5f9; /* Slate-100: 落ち着いた背景色 */
+            background-color: #F1F5F9;
+            color: #334155;
         }
-        /* 金額表示のアニメーション用 */
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
     </style>
 </head>
-<body class="text-slate-700">
+<body class="flex flex-col min-h-screen font-sans">
 
     <!-- ヘッダー -->
-    <header class="bg-slate-800 text-white shadow-lg">
-        <div class="container mx-auto px-4 py-6">
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Exchange Rate View
-                </h1>
-                <p class="text-sm text-slate-400 hidden sm:block">シンプルで使いやすい為替計算機</p>
+    <header class="bg-bank-primary text-white shadow-lg border-b-4 border-bank-gold">
+        <div class="container mx-auto px-4 py-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-landmark text-bank-gold text-2xl"></i>
+                <h1 class="text-2xl font-serif font-bold tracking-wider">Exchange Rate Monitor</h1>
+            </div>
+            <div class="text-sm text-gray-400">
+                <span id="current-date"></span> 現在
             </div>
         </div>
     </header>
 
     <!-- メインコンテンツ -->
-    <main class="container mx-auto px-4 py-8 max-w-4xl">
+    <main class="flex-grow container mx-auto px-4 py-8">
         
-        <!-- セクション1: 通貨換算計算機 -->
-        <section class="bg-white rounded-xl shadow-md p-6 mb-8 border-t-4 border-teal-500">
-            <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                日本円換算シミュレーター
-            </h2>
+        <!-- エラーメッセージ表示エリア（通常は非表示） -->
+        <div id="error-container" class="hidden mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm" role="alert">
+            <p class="font-bold">エラーが発生しました</p>
+            <p id="error-message">詳細なエラーメッセージがここに表示されます。</p>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <!-- 入力フォーム -->
-                <div class="space-y-4">
-                    <div>
-                        <label for="jpy-input" class="block text-sm font-medium text-slate-600 mb-1">日本円 (JPY)</label>
-                        <div class="relative">
-                            <input type="number" id="jpy-input" placeholder="金額を入力 (例: 1000)" 
-                                class="w-full p-3 pl-4 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
-                                min="0" step="1">
-                            <span class="absolute right-4 top-3 text-slate-400 font-medium">円</span>
-                        </div>
-                        <p id="error-message" class="text-red-500 text-sm mt-1 hidden">※ 有効な金額を入力してください</p>
-                    </div>
-
-                    <div>
-                        <label for="currency-select" class="block text-sm font-medium text-slate-600 mb-1">換算先の通貨</label>
-                        <select id="currency-select" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white">
-                            <!-- JSで動的に生成 -->
-                        </select>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- 左カラム：為替レート一覧 -->
+            <section class="lg:col-span-1">
+                <div class="bg-white rounded-lg card-shadow overflow-hidden border border-bank-border">
+                    <div class="bg-bank-accent text-white px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+                        <h2 class="text-lg font-bold"><i class="fa-solid fa-list-ul mr-2"></i>主要為替レート</h2>
+                        <span class="text-xs bg-bank-gold text-bank-primary px-2 py-1 rounded font-bold">JPY 基軸</span>
                     </div>
                     
-                    <button id="calc-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition shadow-md active:transform active:scale-95">
-                        換算する
-                    </button>
-                </div>
-
-                <!-- 結果表示エリア -->
-                <div class="bg-slate-50 rounded-lg p-6 border border-slate-200 flex flex-col items-center justify-center h-full min-h-[200px]">
-                    <p class="text-sm text-slate-500 mb-2">換算結果</p>
-                    <div id="result-area" class="text-center">
-                        <span id="result-value" class="text-4xl font-bold text-slate-800 tracking-tight">-</span>
-                        <span id="result-unit" class="text-xl text-slate-600 ml-2"></span>
+                    <!-- レートテーブル -->
+                    <div class="p-0">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-600 text-sm border-b">
+                                    <th class="px-6 py-3 font-semibold">通貨</th>
+                                    <th class="px-6 py-3 font-semibold text-right">レート (円)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rate-table-body" class="divide-y divide-gray-100 text-sm">
+                                <!-- JavaScriptでここにレートを挿入 -->
+                            </tbody>
+                        </table>
                     </div>
-                    <p id="rate-info" class="text-xs text-slate-400 mt-4">レート: -</p>
+                    <div class="bg-gray-50 px-6 py-3 text-xs text-gray-500 text-center border-t">
+                        ※レートはサンプルデータです
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- セクション2: 為替レート一覧 -->
-        <section class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    主要通貨レート一覧
-                </h2>
-                <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded">対 日本円 (JPY)</span>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase">
-                            <th class="p-4 font-semibold">国旗 / 通貨</th>
-                            <th class="p-4 font-semibold">コード</th>
-                            <th class="p-4 font-semibold text-right">現在のレート (円)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rates-table-body" class="text-slate-700">
-                        <!-- JSで動的に生成 -->
-                    </tbody>
-                </table>
-            </div>
-            <p class="text-right text-xs text-slate-400 mt-4">* データはサンプルです。実際の取引レートとは異なります。</p>
-        </section>
+            <!-- 右カラム：計算機 -->
+            <section class="lg:col-span-2 space-y-8">
+                
+                <!-- 計算機 1: 日本円 → 外貨 -->
+                <div class="bg-white rounded-lg card-shadow overflow-hidden border border-bank-border">
+                    <div class="bg-bank-accent text-white px-6 py-4 border-b border-gray-700">
+                        <h2 class="text-lg font-bold"><i class="fa-solid fa-calculator mr-2"></i>外貨購入シミュレーション (円 → 外貨)</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex flex-col md:flex-row items-end gap-4">
+                            <!-- 日本円入力 -->
+                            <div class="w-full md:w-1/3">
+                                <label for="jpy-input-1" class="block text-sm font-medium text-gray-700 mb-2">日本円 (JPY)</label>
+                                <div class="relative rounded-md shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">¥</span>
+                                    </div>
+                                    <input type="number" name="jpy-input-1" id="jpy-input-1" class="focus:ring-bank-primary focus:border-bank-primary block w-full pl-7 pr-12 sm:text-lg border-gray-300 rounded-md py-3 border" placeholder="10000" oninput="calculateJpyToForeign()">
+                                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">JPY</span>
+                                    </div>
+                                </div>
+                            </div>
 
+                            <!-- 通貨選択 -->
+                            <div class="w-full md:w-1/3">
+                                <label for="currency-select-1" class="block text-sm font-medium text-gray-700 mb-2">交換先通貨</label>
+                                <select id="currency-select-1" class="block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-bank-primary focus:border-bank-primary sm:text-sm rounded-md border" onchange="calculateJpyToForeign()">
+                                    <!-- JSで生成 -->
+                                </select>
+                            </div>
+
+                            <!-- 結果表示 -->
+                            <div class="w-full md:w-1/3 bg-gray-50 rounded-md p-3 border border-gray-200">
+                                <span class="block text-xs text-gray-500">受取額目安</span>
+                                <div class="flex items-baseline justify-end">
+                                    <span id="result-symbol-1" class="text-gray-500 mr-1">$</span>
+                                    <span id="result-amount-1" class="text-2xl font-bold text-bank-primary">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 計算機 2: 外貨 → 日本円 -->
+                <div class="bg-white rounded-lg card-shadow overflow-hidden border border-bank-border">
+                    <div class="bg-bank-accent text-white px-6 py-4 border-b border-gray-700">
+                        <h2 class="text-lg font-bold"><i class="fa-solid fa-money-bill-transfer mr-2"></i>日本円換算シミュレーション (外貨 → 円)</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex flex-col md:flex-row items-end gap-4">
+                            <!-- 外貨入力 -->
+                            <div class="w-full md:w-1/3">
+                                <label for="foreign-input-2" class="block text-sm font-medium text-gray-700 mb-2">外貨金額</label>
+                                <div class="relative rounded-md shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span id="input-symbol-2" class="text-gray-500 sm:text-sm">$</span>
+                                    </div>
+                                    <input type="number" name="foreign-input-2" id="foreign-input-2" class="focus:ring-bank-primary focus:border-bank-primary block w-full pl-7 pr-12 sm:text-lg border-gray-300 rounded-md py-3 border" placeholder="100" oninput="calculateForeignToJpy()">
+                                </div>
+                            </div>
+
+                            <!-- 通貨選択 -->
+                            <div class="w-full md:w-1/3">
+                                <label for="currency-select-2" class="block text-sm font-medium text-gray-700 mb-2">元通貨</label>
+                                <select id="currency-select-2" class="block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-bank-primary focus:border-bank-primary sm:text-sm rounded-md border" onchange="updateSymbolAndCalculate()">
+                                    <!-- JSで生成 -->
+                                </select>
+                            </div>
+
+                            <!-- 結果表示 -->
+                            <div class="w-full md:w-1/3 bg-gray-50 rounded-md p-3 border border-gray-200">
+                                <span class="block text-xs text-gray-500">日本円換算額</span>
+                                <div class="flex items-baseline justify-end">
+                                    <span class="text-gray-500 mr-1">¥</span>
+                                    <span id="result-amount-2" class="text-2xl font-bold text-bank-primary">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </div>
     </main>
 
-    <footer class="bg-slate-800 text-slate-400 py-6 mt-12 text-center text-sm">
-        <p>&copy; 2024 Exchange Rate View App. All rights reserved.</p>
+    <footer class="bg-bank-accent text-gray-400 py-6 mt-8">
+        <div class="container mx-auto px-4 text-center text-sm">
+            <p>&copy; 2024 Currency Exchange App. All rights reserved.</p>
+            <p class="mt-2 text-xs">※このアプリケーションはデモンストレーション用です。実際の為替取引には使用できません。</p>
+        </div>
     </footer>
 
-    <!-- アプリケーションロジック -->
+    <!-- JavaScript ロジック -->
     <script>
-        /**
-         * サンプルデータ定義 (JSONファイルの代わり)
-         * rate: 1単位あたりの日本円価格 (例: 1 USD = 145.50 JPY)
-         */
-        const currencyData = [
-            { code: "USD", name: "米ドル", flag: "🇺🇸", rate: 149.50, locale: "en-US" },
-            { code: "EUR", name: "ユーロ", flag: "🇪🇺", rate: 161.20, locale: "de-DE" },
-            { code: "GBP", name: "英ポンド", flag: "🇬🇧", rate: 188.40, locale: "en-GB" },
-            { code: "AUD", name: "豪ドル", flag: "🇦🇺", rate: 97.80, locale: "en-AU" },
-            { code: "CAD", name: "カナダドル", flag: "🇨🇦", rate: 110.15, locale: "en-CA" },
-            { code: "KRW", name: "韓国ウォン", flag: "🇰🇷", rate: 0.11, locale: "ko-KR" }, // 1ウォンあたりの円
-            { code: "CNY", name: "中国元", flag: "🇨🇳", rate: 20.80, locale: "zh-CN" },
-            { code: "CHF", name: "スイスフラン", flag: "🇨🇭", rate: 168.90, locale: "de-CH" }
-        ];
+        // --- 1. データ定義 (JSON形式を想定したオブジェクト) ---
+        const exchangeData = {
+            base: "JPY",
+            date: new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }),
+            rates: [
+                { code: "USD", name: "米ドル", rate: 145.50, symbol: "$" },
+                { code: "EUR", name: "ユーロ", rate: 158.20, symbol: "€" },
+                { code: "GBP", name: "英ポンド", rate: 184.30, symbol: "£" },
+                { code: "AUD", name: "豪ドル", rate: 95.40, symbol: "A$" },
+                { code: "CAD", name: "カナダドル", rate: 107.80, symbol: "C$" },
+                { code: "CHF", name: "スイスフラン", rate: 165.10, symbol: "Fr" },
+                { code: "CNY", name: "中国人民元", rate: 20.15, symbol: "¥" },
+                { code: "KRW", name: "韓国ウォン", rate: 0.11, symbol: "₩" }
+            ]
+        };
 
-        // DOM要素の取得
-        const jpyInput = document.getElementById('jpy-input');
-        const currencySelect = document.getElementById('currency-select');
-        const calcBtn = document.getElementById('calc-btn');
-        const resultValue = document.getElementById('result-value');
-        const resultUnit = document.getElementById('result-unit');
-        const rateInfo = document.getElementById('rate-info');
+        // --- 2. DOM要素の取得 ---
+        const dateDisplay = document.getElementById('current-date');
+        const rateTableBody = document.getElementById('rate-table-body');
+        const errorContainer = document.getElementById('error-container');
         const errorMessage = document.getElementById('error-message');
-        const tableBody = document.getElementById('rates-table-body');
 
-        /**
-         * 初期化処理
-         */
+        // 計算機1 (円 -> 外貨) 用
+        const jpyInput1 = document.getElementById('jpy-input-1');
+        const currencySelect1 = document.getElementById('currency-select-1');
+        const resultSymbol1 = document.getElementById('result-symbol-1');
+        const resultAmount1 = document.getElementById('result-amount-1');
+
+        // 計算機2 (外貨 -> 円) 用
+        const foreignInput2 = document.getElementById('foreign-input-2');
+        const currencySelect2 = document.getElementById('currency-select-2');
+        const inputSymbol2 = document.getElementById('input-symbol-2');
+        const resultAmount2 = document.getElementById('result-amount-2');
+
+        // --- 3. 初期化処理 ---
         function init() {
-            renderSelectOptions();
-            renderTable();
-            
-            // イベントリスナー設定
-            calcBtn.addEventListener('click', calculateExchange);
-            
-            // Enterキーで計算実行
-            jpyInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') calculateExchange();
-            });
+            try {
+                // 日付表示
+                dateDisplay.textContent = exchangeData.date;
 
-            // 入力時にエラーメッセージを消す
-            jpyInput.addEventListener('input', () => {
-                if(!errorMessage.classList.contains('hidden')) {
-                    errorMessage.classList.add('hidden');
-                    jpyInput.classList.remove('border-red-500', 'focus:ring-red-500');
-                    jpyInput.classList.add('border-slate-300', 'focus:ring-teal-500');
+                // データの整合性チェック
+                if (!exchangeData.rates || exchangeData.rates.length === 0) {
+                    throw new Error("為替レートデータの読み込みに失敗しました。");
                 }
-            });
-        }
 
-        /**
-         * セレクトボックスのオプション生成
-         */
-        function renderSelectOptions() {
-            currencyData.forEach(currency => {
-                const option = document.createElement('option');
-                option.value = currency.code;
-                option.textContent = `${currency.flag} ${currency.name} (${currency.code})`;
-                currencySelect.appendChild(option);
-            });
-        }
+                // UI描画
+                renderRateTable();
+                populateDropdowns();
 
-        /**
-         * レート一覧テーブルの描画
-         */
-        function renderTable() {
-            tableBody.innerHTML = ''; // クリア
-            currencyData.forEach(currency => {
-                const row = document.createElement('tr');
-                row.className = "border-b border-slate-100 hover:bg-slate-50 transition";
+                // 初期計算
+                updateSymbolAndCalculate(); // 計算機2のシンボル更新
                 
-                row.innerHTML = `
-                    <td class="p-4 flex items-center gap-3">
-                        <span class="text-2xl">${currency.flag}</span>
-                        <span class="font-medium">${currency.name}</span>
-                    </td>
-                    <td class="p-4 text-slate-500 font-mono">${currency.code}</td>
-                    <td class="p-4 text-right font-bold text-slate-700">
-                        ${currency.rate.toFixed(2)} <span class="text-xs font-normal text-slate-400">JPY</span>
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // --- 4. レート表の描画 ---
+        function renderRateTable() {
+            rateTableBody.innerHTML = '';
+            
+            exchangeData.rates.forEach(currency => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-blue-50 transition-colors";
+                
+                // 固定された一意なIDを設定 (要件: divタグのid属性で区別...ここではtr/td内のdivに設定)
+                // コンテンツ部分をdivでラップし、IDを付与します
+                
+                const nameCell = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-8 w-8 rounded-full bg-bank-primary text-white flex items-center justify-center text-xs font-bold mr-3">
+                                ${currency.code.substring(0, 2)}
+                            </div>
+                            <div>
+                                <div class="font-bold text-gray-900">${currency.code}</div>
+                                <div class="text-xs text-gray-500">${currency.name}</div>
+                            </div>
+                        </div>
                     </td>
                 `;
-                tableBody.appendChild(row);
+
+                const rateCell = `
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div id="rate-${currency.code}" class="text-bank-primary font-bold tracking-wide">
+                            ${currency.rate.toFixed(2)}
+                        </div>
+                    </td>
+                `;
+
+                row.innerHTML = nameCell + rateCell;
+                rateTableBody.appendChild(row);
             });
         }
 
-        /**
-         * 換算ロジック
-         */
-        function calculateExchange() {
-            const amount = parseFloat(jpyInput.value);
-            const targetCode = currencySelect.value;
-            
-            // エラーハンドリング: 入力値チェック
-            if (isNaN(amount) || amount < 0 || jpyInput.value.trim() === "") {
-                showError();
-                return;
-            }
+        // --- 5. ドロップダウンメニューの生成 ---
+        function populateDropdowns() {
+            const optionsHTML = exchangeData.rates.map(c => 
+                `<option value="${c.code}" data-rate="${c.rate}" data-symbol="${c.symbol}">
+                    ${c.code} - ${c.name}
+                </option>`
+            ).join('');
 
-            // 選択された通貨のデータを取得
-            const targetCurrency = currencyData.find(c => c.code === targetCode);
-            
-            if (!targetCurrency) {
-                alert("通貨データが見つかりません。");
-                return;
-            }
+            currencySelect1.innerHTML = optionsHTML;
+            currencySelect2.innerHTML = optionsHTML;
 
-            // 計算: 日本円 / レート = 外貨額
-            // エラーハンドリング: 0除算回避（通常レートが0になることはないが念のため）
-            if (targetCurrency.rate === 0) {
-                alert("レート設定エラーです。");
-                return;
-            }
-
-            const convertedAmount = amount / targetCurrency.rate;
-
-            // 結果表示更新
-            updateDisplay(convertedAmount, targetCurrency);
+            // 初期選択を設定（例: USD）
+            currencySelect1.value = "USD";
+            currencySelect2.value = "USD";
         }
 
-        /**
-         * エラー表示処理
-         */
-        function showError() {
-            errorMessage.classList.remove('hidden');
-            jpyInput.classList.remove('border-slate-300', 'focus:ring-teal-500');
-            jpyInput.classList.add('border-red-500', 'focus:ring-red-500');
+        // --- 6. 計算ロジック ---
+
+        // 計算機1: 円 → 外貨
+        function calculateJpyToForeign() {
+            try {
+                const jpyAmount = parseFloat(jpyInput1.value);
+                const selectedOption = currencySelect1.options[currencySelect1.selectedIndex];
+                const rate = parseFloat(selectedOption.getAttribute('data-rate'));
+                const symbol = selectedOption.getAttribute('data-symbol');
+
+                // シンボル更新
+                resultSymbol1.textContent = symbol;
+
+                if (isNaN(jpyAmount) || jpyAmount <= 0) {
+                    resultAmount1.textContent = "0.00";
+                    return;
+                }
+
+                // 計算: 円 ÷ レート
+                const result = jpyAmount / rate;
+                
+                // 表示更新 (小数点第2位まで)
+                resultAmount1.textContent = result.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                hideError();
+
+            } catch (e) {
+                showError("計算中にエラーが発生しました。");
+            }
+        }
+
+        // 計算機2: 外貨 → 円 (シンボル更新含む)
+        function updateSymbolAndCalculate() {
+            const selectedOption = currencySelect2.options[currencySelect2.selectedIndex];
+            const symbol = selectedOption.getAttribute('data-symbol');
             
-            // 結果をリセット
-            resultValue.innerText = "-";
-            resultUnit.innerText = "";
-            rateInfo.innerText = "レート: -";
+            // 入力欄のシンボル更新
+            inputSymbol2.textContent = symbol;
+            
+            calculateForeignToJpy();
         }
 
-        /**
-         * 結果表示の更新
-         */
-        function updateDisplay(amount, currency) {
-            // 通貨フォーマット (例: 1,234.56)
-            const formatter = new Intl.NumberFormat(currency.locale, {
-                style: 'decimal',
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+        function calculateForeignToJpy() {
+            try {
+                const foreignAmount = parseFloat(foreignInput2.value);
+                const selectedOption = currencySelect2.options[currencySelect2.selectedIndex];
+                const rate = parseFloat(selectedOption.getAttribute('data-rate'));
 
-            // アニメーション用にクラスを再適用
-            const resultArea = document.getElementById('result-area');
-            resultArea.classList.remove('fade-in');
-            void resultArea.offsetWidth; // リフロー発生
-            resultArea.classList.add('fade-in');
+                if (isNaN(foreignAmount) || foreignAmount <= 0) {
+                    resultAmount2.textContent = "0";
+                    return;
+                }
 
-            resultValue.textContent = formatter.format(amount);
-            resultUnit.textContent = currency.code;
-            rateInfo.textContent = `レート: 1 ${currency.code} = ${currency.rate} JPY`;
+                // 計算: 外貨 × レート
+                const result = foreignAmount * rate;
+
+                // 表示更新 (整数、日本円なので)
+                resultAmount2.textContent = Math.floor(result).toLocaleString('ja-JP');
+                hideError();
+
+            } catch (e) {
+                showError("計算中にエラーが発生しました。");
+            }
         }
 
-        // アプリケーション開始
-        init();
+        // --- 7. エラーハンドリング ---
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorContainer.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorContainer.classList.add('hidden');
+        }
+
+        // アプリ起動
+        window.onload = init;
+
     </script>
 </body>
 </html>
